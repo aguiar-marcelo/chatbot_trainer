@@ -1,25 +1,25 @@
-// leitor de qr code
+// Leitor de QR Code
 const qrcode = require('qrcode-terminal');
-const { Client, Buttons, List, MessageMedia } = require('whatsapp-web.js'); // Mudança Buttons
+const { Client, Buttons, List, MessageMedia } = require('whatsapp-web.js');
 const client = new Client();
-// serviço de leitura do qr code
+
+// Serviço de leitura do QR Code
 client.on('qr', qr => {
-    qrcode.generate(qr, {small: true});
+    qrcode.generate(qr, { small: true });
 });
-// apos isso ele diz que foi tudo certo
+
+// Conexão estabelecida
 client.on('ready', () => {
     console.log('Tudo certo! WhatsApp conectado.');
 });
-// E inicializa tudo 
+
+// Inicialização do cliente
 client.initialize();
 
-const delay = ms => new Promise(res => setTimeout(res, ms)); // Função que usamos para criar o delay entre uma ação e outra
-
-// Funil
+const delay = ms => new Promise(res => setTimeout(res, ms));
 let userInfo = {};
 
 client.on('message', async msg => {
-
     if (msg.body.match(/(menu|Menu|MENU|dia|tarde|noite|oi|Oi|Olá|olá|ola|Ola)/i) && msg.from.endsWith('@c.us')) {
         const chat = await msg.getChat();
         await delay(1000);
@@ -27,89 +27,83 @@ client.on('message', async msg => {
         await delay(1000);
         const contact = await msg.getContact();
         const name = contact.pushname;
-        await client.sendMessage(msg.from, 'Olá! ' + name.split(" ")[0] + ', sou seu PERSONAL TRAINER virtual. Como posso ajudá-lo hoje?\n\nPor favor, digite uma das opções abaixo:\n\n1 - Como funciona\n2 - Montar treino personalizado\n3 - Montar dieta personalizada\n4 - Acadêmias próximas a mim\n5 - Outras perguntas');
+        await client.sendMessage(msg.from, `Olá! ${name.split(" ")[0]}, sou seu PERSONAL TRAINER virtual. Como posso ajudá-lo hoje?\n\n` +
+            "Por favor, digite uma das opções abaixo:\n\n" +
+            "1 - Como funciona\n" +
+            "2 - Montar treino personalizado\n" +
+            "3 - Montar dieta personalizada\n" +
+            "4 - Verificar IMC\n" +
+            "5 - Quantidade de água diária\n" +
+            "6 - Academias próximas a mim");
         await delay(1000);
     }
 
-    // Opção 1
-    if (msg.body === '1' && msg.from.endsWith('@c.us')) {
-        const chat = await msg.getChat();
-        await delay(1000);
-        await chat.sendStateTyping();
-        await delay(1000);
-        await client.sendMessage(msg.from, 'COMO FUNCIONA?\nÉ muito simples.\n\n1º Passo\nEscolha uma de nossa opções no menu principal.\n\n2º Passo\nForneça algumas informações sobre você para um protocolo mais personalidado.\n\n3º Passo\nPonha em prática e tenha mais saúde!!\n*digite "MENU" para retonar as opções*');
+    // Opção 1: Como funciona
+    if (msg.body === '1') {
+        await client.sendMessage(msg.from, "COMO FUNCIONA?\nÉ muito simples.\n\n1º Passo: Escolha uma das opções no menu principal.\n" +
+            "2º Passo: Forneça algumas informações sobre você para um protocolo mais personalizado.\n" +
+            "3º Passo: Ponha em prática e tenha mais saúde!!\n*Digite 'MENU' para retornar às opções.*");
     }
 
     // Opção 2: Montar treino personalizado
-    if (msg.body === '2' && msg.from.endsWith('@c.us')) {
-        const chat = await msg.getChat();
-        await delay(1000);
-        await chat.sendStateTyping();
-        await delay(1000);
-        await client.sendMessage(msg.from, 'Agora, para montar um treino personalizado, preciso de mais algumas informações:\n\nPor favor, informe o seu peso (em kg):');
-        
-        // Aguardar o peso
-        userInfo.step = 'peso';  // Definir que agora é a vez de coletar o peso
+    if (msg.body === '2') {
+        await client.sendMessage(msg.from, "Para montar um treino personalizado, informe seu peso (em kg):");
+        userInfo = { step: 'pesoTreino' };
     }
 
     // Opção 3: Montar dieta personalizada
-    if (msg.body === '3' && msg.from.endsWith('@c.us')) {
-        const chat = await msg.getChat();
-        await delay(1000);
-        await chat.sendStateTyping();
-        await delay(1000);
-        await client.sendMessage(msg.from, 'Sorteio de prêmios todo ano.\n\nAtendimento médico ilimitado 24h por dia.\n\nReceitas de medicamentos');
+    if (msg.body === '3') {
+        await client.sendMessage(msg.from, "Para montar uma dieta personalizada, informe seu peso (em kg):");
+        userInfo = { step: 'pesoDieta' };
+    }
+
+    // Opção 4: Verificar IMC
+    if (msg.body === '4') {
+        await client.sendMessage(msg.from, "Para calcular seu IMC, informe seu peso (em kg):");
+        userInfo = { step: 'imcPeso' };
+        return;
+    }
+
+    if (userInfo.step === 'imcPeso' && !userInfo.peso) {
+        const peso = parseFloat(msg.body);
+        if (isNaN(peso) || peso <= 0) {
+            await client.sendMessage(msg.from, "Por favor, informe um peso válido.");
+            return;
+        }
+        userInfo.peso = peso;
+        await client.sendMessage(msg.from, "Agora, informe sua altura (em metros):");
+        userInfo.step = 'imcAltura';
+        return;
+    }
+
+    if (userInfo.step === 'imcAltura' && userInfo.peso) {
+        const altura = parseFloat(msg.body);
+        if (isNaN(altura) || altura <= 0) {
+            await client.sendMessage(msg.from, "Por favor, informe uma altura válida.");
+            return;
+        }
+        userInfo.altura = altura;
         
-        await delay(1000);
-        await chat.sendStateTyping();
-        await delay(1000);
-        await client.sendMessage(msg.from, 'Agora, para montar uma dieta personalizada, preciso de mais algumas informações:\n\nPor favor, informe o seu peso (em kg):');
+        const imc = userInfo.peso / (userInfo.altura * userInfo.altura);
+        let classificacao = "";
+        if (imc < 18.5) classificacao = "Abaixo do peso";
+        else if (imc < 24.9) classificacao = "Peso normal";
+        else if (imc < 29.9) classificacao = "Sobrepeso";
+        else classificacao = "Obesidade";
         
-        // Aguardar o peso
-        userInfo.step = 'peso';  // Definir que agora é a vez de coletar o peso
+        await client.sendMessage(msg.from, `Seu IMC é ${imc.toFixed(2)} - ${classificacao}`);
+        userInfo = {};
+        return;
     }
 
-    // Aguardar o peso e altura
-    if (userInfo.step === 'peso' && msg.from.endsWith('@c.us')) {
-        userInfo.peso = msg.body;
-        await client.sendMessage(msg.from, 'Agora, por favor, informe a sua altura (em metros):');
-        userInfo.step = 'altura';  // Agora aguardar a altura
+    // Opção 5: Quantidade de água diária
+    if (msg.body === '5') {
+        await client.sendMessage(msg.from, "Para calcular sua necessidade de água, informe seu peso (em kg):");
+        userInfo = { step: 'agua' };
     }
 
-    // Aguardar a altura
-    if (userInfo.step === 'altura' && msg.from.endsWith('@c.us')) {
-        userInfo.altura = msg.body;
-        
-        // Confirmar as informações e continuar
-        await client.sendMessage(msg.from, `Peso: ${userInfo.peso} kg\nAltura: ${userInfo.altura} m\n\nCom essas informações, podemos prosseguir com seu treino/dieta personalizado!`);
-
-        // Resetar o processo
-        userInfo = {};  // Resetar para novos usuários
-
-        // Aqui você pode continuar com a lógica para gerar o treino ou a dieta, com base nas informações coletadas.
+    // Opção 6: Academias próximas
+    if (msg.body === '6') {
+        await client.sendMessage(msg.from, "Para encontrar academias próximas, ative sua localização no WhatsApp e envie sua posição.");
     }
-
-    // Opção 4
-    if (msg.body === '4' && msg.from.endsWith('@c.us')) {
-        const chat = await msg.getChat();
-        await delay(1000);
-        await chat.sendStateTyping();
-        await delay(1000);
-        await client.sendMessage(msg.from, 'Você pode aderir aos nossos planos diretamente pelo nosso site ou pelo WhatsApp.\n\nApós a adesão, você terá acesso imediato');
-        
-        await delay(1000);
-        await chat.sendStateTyping();
-        await delay(1000);
-        await client.sendMessage(msg.from, 'Link para cadastro: https://site.com');
-    }
-
-    // Opção 5
-    if (msg.body === '5' && msg.from.endsWith('@c.us')) {
-        const chat = await msg.getChat();
-        await delay(1000);
-        await chat.sendStateTyping();
-        await delay(1000);
-        await client.sendMessage(msg.from, 'Se você tiver outras dúvidas ou precisar de mais informações, por favor, fale aqui nesse whatsapp ou visite nosso site: https://site.com');
-    }
-
 });
